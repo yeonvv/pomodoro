@@ -37,6 +37,22 @@ class DatabaseHelper {
     );
   }
 
+  // Future<void> resetTable() async {
+  //   final db = await DatabaseHelper.getDatabase();
+
+  //   // 테이블 드롭 후 재생성
+  //   await db.execute('DROP TABLE IF EXISTS pomodoros');
+  //   await db.execute('''
+  //   CREATE TABLE pomodoros(
+  //     id INTEGER PRIMARY KEY AUTOINCREMENT,
+  //     date TEXT,
+  //     count INTEGER
+  //   )
+  // ''');
+  //   await db.execute('CREATE INDEX IF NOT EXISTS idx_date ON pomodoros(date)');
+  //   print('Table reset and recreated!');
+  // }
+
   Future<int> savePomodoro(Map<String, dynamic> row) async {
     final db = await DatabaseHelper.getDatabase();
 
