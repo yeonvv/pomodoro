@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:chosimpo_app/painters/diagonal_painter.dart';
+import 'package:chosimpo_app/sqflite/database_helper.dart';
+import 'package:chosimpo_app/widgets/calendar.dart';
 import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
 
@@ -13,6 +15,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  List<Map<String, dynamic>> pomodoros = [];
   late int minutes;
   late int concentrationTime = minutes;
   bool isRunning = false;
@@ -30,7 +33,42 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    minutes = 1500;
+    minutes = 5;
+    totalPomodoros = 0;
+    loadPomodoros();
+  }
+
+  void savePomodoro(int pomodoroCount) async {
+    Map<String, dynamic> row = {
+      'date': DateTime.now().toString().split(' ')[0],
+      'count': pomodoroCount,
+    };
+
+    var existing = await DatabaseHelper().getPomodorosForToday(row['date']);
+
+    if (existing.isNotEmpty) {
+      int id = existing.first['id'];
+      await DatabaseHelper().updatePomodoro(id, row);
+    } else {
+      await DatabaseHelper().savePomodoro(row);
+    }
+    setState(() {
+      totalPomodoros += 1;
+    });
+    loadPomodoros();
+  }
+
+  void loadPomodoros() async {
+    String today = DateTime.now().toString().split(' ')[0];
+
+    List<Map<String, dynamic>> result =
+        await DatabaseHelper().getPomodorosForToday(today);
+
+    if (result.isNotEmpty) {
+      setState(() {
+        totalPomodoros = result.first['count'] as int? ?? 0;
+      });
+    }
   }
 
   void resetPomodoro(int seconds, bool basic) {
@@ -98,8 +136,10 @@ class _HomeScreenState extends State<HomeScreen> {
       timer.cancel();
       setState(() {
         isRest = true;
-        restTime = basic ? 300 : 600;
+        restTime = basic ? 5 : 10;
+        totalPomodoros += 1;
       });
+      savePomodoro(totalPomodoros);
       restTimeStart();
     } else {
       setState(() {
@@ -136,17 +176,21 @@ class _HomeScreenState extends State<HomeScreen> {
     if (isSound) {
       await audioPlayer.setReleaseMode(ReleaseMode.loop);
       await audioPlayer.play(AssetSource("sounds/click.mp3"));
+      playSoundWithDelay(const Duration(seconds: 3));
     } else if (isVibrate) {
       vibrateContinuously();
     }
+
+    if (!mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) {
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: Text(
             "휴식이 끝났습니다",
-            style: Theme.of(context)
+            style: Theme.of(dialogContext)
                 .textTheme
                 .headlineMedium!
                 .copyWith(color: Colors.black),
@@ -157,20 +201,33 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 if (isSound) {
                   await audioPlayer.setReleaseMode(ReleaseMode.stop);
+                  await audioPlayer.stop();
                 } else if (isVibrate) {
                   stopVibrating();
                 }
-                Navigator.of(context).pop();
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
               },
               child: Text(
                 "확인",
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: Theme.of(dialogContext).textTheme.bodyMedium,
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  void playSoundWithDelay(Duration delay) async {
+    await audioPlayer.setReleaseMode(ReleaseMode.stop);
+    await audioPlayer.play(AssetSource("sounds/click.mp3"));
+
+    audioPlayer.onPlayerComplete.listen((event) async {
+      await Future.delayed(delay);
+      await audioPlayer.play(AssetSource("sounds/click.mp3"));
+    });
   }
 
   void restTimeStart() async {
@@ -190,11 +247,12 @@ class _HomeScreenState extends State<HomeScreen> {
           timer.cancel();
           setState(() {
             isRest = false;
-            totalPomodoros += 1;
-            minutes = basic ? 1500 : 3000;
+
+            minutes = basic ? 5 : 10;
             concentrationTime = minutes;
             isRunning = false;
           });
+
           endRest();
         }
       },
@@ -209,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void onRefreshPressed() {
-    if (concentrationTime != 1500 | 3000) {
+    if (concentrationTime != 5 | 10) {
       showDialog(
         context: context,
         builder: (context) {
@@ -284,6 +342,29 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  void showHistoryCalendar() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          elevation: 0,
+          child: Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            height: 450,
+            child: const Calendar(),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     audioPlayer.dispose();
@@ -306,11 +387,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   DiagonalPainter(surfaceColor: surfaceColor, isRest: isRest),
             ),
             Positioned(
-              top: 50,
+              top: 45,
               right: 25,
-              child: Text(
-                "History",
-                style: Theme.of(context).textTheme.headlineMedium,
+              child: GestureDetector(
+                onTap: showHistoryCalendar,
+                child: Text(
+                  "History",
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
               ),
             ),
             Column(
@@ -341,13 +425,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             !isRest
                                 ? IconButton(
                                     iconSize: 50,
-                                    color: (concentrationTime != 1500 &&
-                                            concentrationTime != 3000)
+                                    color: (concentrationTime != 5 &&
+                                            concentrationTime != 10)
                                         ? Theme.of(context).cardColor
                                         : Color.lerp(Colors.transparent,
                                             Colors.grey, 0.3),
-                                    onPressed: (concentrationTime != 1500 &&
-                                            concentrationTime != 3000)
+                                    onPressed: (concentrationTime != 5 &&
+                                            concentrationTime != 10)
                                         ? onRefreshPressed
                                         : null,
                                     icon: const Icon(Icons.refresh_outlined),
@@ -413,9 +497,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         GestureDetector(
-                          onTap: () => !isRest
-                              ? resetPomodoro(1500, basic = true)
-                              : null,
+                          onTap: () =>
+                              !isRest ? resetPomodoro(5, basic = true) : null,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 10),
@@ -441,9 +524,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () => !isRest
-                              ? resetPomodoro(3000, basic = false)
-                              : null,
+                          onTap: () =>
+                              !isRest ? resetPomodoro(10, basic = false) : null,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 10),
@@ -492,7 +574,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                         isSound
                                             ? Container(
-                                                width: 30,
+                                                width: 20,
                                                 height: 5,
                                                 decoration: const BoxDecoration(
                                                   color: Colors.blue,
@@ -503,15 +585,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                               )
                                             : const SizedBox(
-                                                width: 30,
+                                                width: 20,
                                                 height: 5,
                                               ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(
-                                    width: 10,
-                                  ),
+                                  const SizedBox(width: 20),
                                   GestureDetector(
                                     onTap: vibrateAlarm,
                                     child: Column(
@@ -522,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                         isVibrate
                                             ? Container(
-                                                width: 30,
+                                                width: 20,
                                                 height: 5,
                                                 decoration: const BoxDecoration(
                                                   color: Colors.blue,
@@ -534,14 +614,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                               )
                                             : const SizedBox(
                                                 height: 5,
-                                                width: 30,
+                                                width: 20,
                                               ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(
-                                    width: 10,
-                                  ),
+                                  const SizedBox(width: 20),
                                   GestureDetector(
                                     onTap: noAlarm,
                                     child: Column(
@@ -552,7 +630,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                         !isSound & !isVibrate
                                             ? Container(
-                                                width: 30,
+                                                width: 20,
                                                 height: 5,
                                                 decoration: const BoxDecoration(
                                                   color: Colors.blue,
@@ -564,7 +642,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               )
                                             : const SizedBox(
                                                 height: 5,
-                                                width: 30,
+                                                width: 20,
                                               ),
                                       ],
                                     ),
