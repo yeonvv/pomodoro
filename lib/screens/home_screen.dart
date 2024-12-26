@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    minutes = 5;
+    minutes = 1500;
     totalPomodoros = 0;
     loadPomodoros();
   }
@@ -136,7 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
       timer.cancel();
       setState(() {
         isRest = true;
-        restTime = basic ? 5 : 10;
+        restTime = basic ? 1500 : 3000;
         totalPomodoros += 1;
       });
       savePomodoro(totalPomodoros);
@@ -248,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             isRest = false;
 
-            minutes = basic ? 5 : 10;
+            minutes = basic ? 300 : 600;
             concentrationTime = minutes;
             isRunning = false;
           });
@@ -267,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void onRefreshPressed() {
-    if (concentrationTime != 5 | 10) {
+    if (concentrationTime != 1500 | 3000) {
       showDialog(
         context: context,
         builder: (context) {
@@ -425,13 +425,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             !isRest
                                 ? IconButton(
                                     iconSize: 50,
-                                    color: (concentrationTime != 5 &&
-                                            concentrationTime != 10)
+                                    color: (concentrationTime != 1500 &&
+                                            concentrationTime != 3000)
                                         ? Theme.of(context).cardColor
                                         : Color.lerp(Colors.transparent,
                                             Colors.grey, 0.3),
-                                    onPressed: (concentrationTime != 5 &&
-                                            concentrationTime != 10)
+                                    onPressed: (concentrationTime != 1500 &&
+                                            concentrationTime != 3000)
                                         ? onRefreshPressed
                                         : null,
                                     icon: const Icon(Icons.refresh_outlined),
@@ -497,8 +497,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         GestureDetector(
-                          onTap: () =>
-                              !isRest ? resetPomodoro(5, basic = true) : null,
+                          onTap: () => !isRest
+                              ? resetPomodoro(1500, basic = true)
+                              : null,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 10),
@@ -524,8 +525,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () =>
-                              !isRest ? resetPomodoro(10, basic = false) : null,
+                          onTap: () => !isRest
+                              ? resetPomodoro(3000, basic = false)
+                              : null,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 10),

@@ -1,4 +1,4 @@
-import 'package:chosimpo_app/screens/home_screen.dart';
+import 'package:chosimpo_app/screens/splash_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -10,6 +10,8 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+
+  // await DatabaseHelper().resetTable();
 
   runApp(const MyApp());
 }
@@ -42,7 +44,7 @@ class MyApp extends StatelessWidget {
         ),
         cardColor: const Color(0xffF4EDDB),
       ),
-      home: const HomeScreen(),
+      home: const SplashScreen(),
     );
   }
 }
